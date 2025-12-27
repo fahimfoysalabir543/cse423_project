@@ -25,7 +25,6 @@ totalwood=0
 totalnarco=0
 
 
-
 # Game state
 life = 5
 score = 0
