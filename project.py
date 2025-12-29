@@ -23,27 +23,34 @@ grid_len = 1200
 totalmeat= 0
 totalwood=0
 totalnarco=0
+riding= False
+riding1=False
+riding2=False
 
 
 # Game state
-life = 5
+life = 20
 score = 0
 miss = 0
 gameover = False
 water= False
 trap1= False
-kill=True
+kill=False
 knock=False
-axe=False
+axe=True
 axe_swinging= False
 axe_swing_angle=0
-axe_swing_speed=5
-axe_max_swing=300
+axe_swing_speed=4
+axe_max_swing=-120
+obstacle=[]
 
 # Cheat features
 cheat = False
 
 autocamgun = False
+
+unconsc_count=4
+consc_count=0
 
 # Enemy positions
 enemy_positions = []
@@ -57,6 +64,7 @@ bullsize = 10
 
 # Enemy / collision sizes
 enemy_rad = 50
+
 player_rad = 40
 
 # Enemy movement
@@ -103,7 +111,7 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glLoadIdentity()
 
     # Set up an orthographic projection that matches window coordinates
-    gluOrtho2D(0, 300, 0, 200)  # left, right, bottom, top
+    gluOrtho2D(0, 1600, 0, 1000)  # left, right, bottom, top
 
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
@@ -124,12 +132,12 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
 def draw_texts():
     global life, score, miss, gameover, cheat, autocamgun
     if gameover:
-        draw_text(20, 760, f"Game is Over. Your Score is {score}.")
+        draw_text(20, 700, f"Game is Over. Your Score is {score}.")
         draw_text(20, 730, "Press R to RESTART the Game.")
     else:
-        draw_text(10, 780, f"Player Life Remaining: {life}")
-        draw_text(10, 740, f"Game Score: {score}")
-        draw_text(10, 710, f"Player Bullets Missed: {miss}")
+        draw_text(10, 640, f"Player Life Remaining: {life}")
+        draw_text(10, 620, f"Game Score: {score}")
+        draw_text(10, 600, f"Player Bullets Missed: {miss}")
 
 
 def draw_grids_and_walls():
@@ -147,15 +155,15 @@ def draw_grids_and_walls():
     glEnd()
 
 
-    glColor3f(0, 1, 1)
+    glColor3f(0, .6, 1)
     glBegin(GL_QUADS)
-    glVertex3f(-900, -850, 1)
-    glVertex3f(-900, -650, 1)
+    glVertex3f(-grid_len, -850, 1)
+    glVertex3f(-grid_len, -650, 1)
     glVertex3f(0, -650, 1)
     glVertex3f(0, -850, 1)
     glEnd()
 
-    glColor3f(0, 1, 1)
+    glColor3f(0, .6, 1)
     glBegin(GL_QUADS)
     glVertex3f(0, -1100, 1)
     glVertex3f(0, -650, 1)
@@ -163,11 +171,10 @@ def draw_grids_and_walls():
     glVertex3f(300, -1100, 1)
     glEnd()
 
-    wall_height = 150
     m = grid_len
 
     # Left wall
-    glColor3f(0, 1, 1)
+    glColor3f(0, .6, 1)
     glBegin(GL_QUADS)
     glVertex3f(-m, -m, 0)
     glVertex3f(-m, m, 0)
@@ -177,7 +184,7 @@ def draw_grids_and_walls():
     glEnd()
 
     # Right wall
-    glColor3f(0, 1, 1)
+    glColor3f(0, .6, 1)
     glBegin(GL_QUADS)
     glVertex3f(m, -m, 0)
     glVertex3f(m, m, 0)
@@ -186,7 +193,7 @@ def draw_grids_and_walls():
     glEnd()
 
     # Bottom wall
-    glColor3f(0, 1, 1)
+    glColor3f(0, .6, 1)
     glBegin(GL_QUADS)
     glVertex3f(-m, -m, 0)
     glVertex3f(m, -m, 0)
@@ -195,7 +202,7 @@ def draw_grids_and_walls():
     glEnd()
 
     # Top wall
-    glColor3f(0, 1, 1)
+    glColor3f(0, .6, 1)
     glBegin(GL_QUADS)
     glVertex3f(-m, m, 0)
     glVertex3f(m, m, 0)
@@ -215,6 +222,7 @@ def draw_grids_and_walls():
     glTranslatef(-500, 200, 0)
     gluCylinder(gluNewQuadric(), 50, 10, 300, 10, 10)
     glPopMatrix()
+    obstacle.append((-500,200,50))
 
 
     #tree2
@@ -229,6 +237,7 @@ def draw_grids_and_walls():
     glTranslatef(-900, 700, 0)
     gluCylinder(gluNewQuadric(), 30, 10, 300, 10, 10)
     glPopMatrix()
+    obstacle.append((-900,700,30))
 
     #tree3
     glPushMatrix()
@@ -242,6 +251,7 @@ def draw_grids_and_walls():
     glTranslatef(900, -900, 0)
     gluCylinder(gluNewQuadric(), 50, 10, 300, 10, 10)
     glPopMatrix()
+    obstacle.append((900,-900,50))
 
     #tree4
     glPushMatrix()
@@ -255,6 +265,7 @@ def draw_grids_and_walls():
     glTranslatef(-1000, -1000, 0)
     gluCylinder(gluNewQuadric(), 30, 10, 300, 10, 10)
     glPopMatrix()
+    obstacle.append((-1000,-1000,30))
 
     #tree5
     glPushMatrix()
@@ -268,6 +279,7 @@ def draw_grids_and_walls():
     glTranslatef(1000, 900, 0)
     gluCylinder(gluNewQuadric(), 30, 10, 300, 10, 10)
     glPopMatrix()
+    obstacle.append((1000,900,30))
 
 
     #mountains
@@ -277,6 +289,8 @@ def draw_grids_and_walls():
     glTranslatef(900, 100, 0)
     gluCylinder(gluNewQuadric(), 200, 30, 500, 10, 10)
     glPopMatrix()
+
+    obstacle.append((900,100,200))
 
     glPushMatrix()
     glColor3f(1, 0, 0)
@@ -289,12 +303,21 @@ def draw_grids_and_walls():
     glTranslatef(900, 0, 0)
     gluCylinder(gluNewQuadric(), 150, 30, 400, 10, 10)
     glPopMatrix()
+    obstacle.append((900,0,150))
 
     glPushMatrix()
     glColor3f(1, 0, 0)
     glTranslatef(900, 0, 370)
     gluSphere(gluNewQuadric(), 30, 20, 20)
     glPopMatrix()
+
+    #sky
+    glPushMatrix()
+    glColor3f(0, .8, 1)
+    glTranslatef(0,0, 50)
+    gluSphere(gluNewQuadric(), 2500, 20, 20)
+    glPopMatrix()
+
 
 
     #Narco
@@ -303,6 +326,7 @@ def draw_grids_and_walls():
     glTranslatef(900,-400, -50)
     gluSphere(gluNewQuadric(), 120, 20, 20)
     glPopMatrix()
+    obstacle.append((900,-400,120))
 
     for i in narcopos:
         x=i[0]
@@ -390,7 +414,14 @@ def draw_player():
     global axe_x, axe_y
     glPushMatrix()
     glTranslatef(player_x, player_y, 0)
+    if riding1:
+        glTranslatef(0, 0, 25)
 
+    elif riding2:
+        glTranslatef(0, 0, 100)
+
+    if riding2 and (player_x>grid_len+40 or player_x<-grid_len-40 or player_y>grid_len+50 or player_y<-grid_len-40) or (player_x>-1200 and player_x<20 and player_y>-830 and player_y<-630) or (player_x>20 and player_x<280 and player_y>-1070 and player_y<-630):
+        glTranslatef(0,0,-100)
     if gameover and water:
         glTranslatef(0, 0, -60)
         glRotatef(50, 1, 0, 0)
@@ -438,12 +469,18 @@ def draw_player():
     glPushMatrix()
     glColor3f(0, 0, 1)
     glTranslatef(0, 30, 0)
-    gluCylinder(gluNewQuadric(), 10, 30, 60, 10, 10)
+    if riding:
+        glTranslatef(0, 65, 0)
+        glRotatef(70, 1, 0, 0)
+    gluCylinder(gluNewQuadric(), 10, 20, 68, 10, 10)
     glPopMatrix()
 
     glPushMatrix()
     glTranslatef(0, -30, 0)
-    gluCylinder(gluNewQuadric(), 10, 30, 60, 10, 10)
+    if riding:
+        glTranslatef(0, -65, 0)
+        glRotatef(-70, 1, 0, 0)
+    gluCylinder(gluNewQuadric(), 10, 20, 80, 10, 10)
     glPopMatrix()
 
     # hands
@@ -523,6 +560,7 @@ def initialize_enemies():
             'x': x,
             'y': y,
             'life':2,
+            'speed': .2,
             'consc':1,
             'meat': 2,
             'count':0,
@@ -549,14 +587,17 @@ def initialize_enemies():
             'y': y,
             'dx': dx,
             'dy': dy,
-            'life':2,
-            'consc':1,
-            'meat': 2,
+            'life':3,
+            'consc':2,
+            'count':0,
+            'meat': 3,
+            'speed': .3,
             'agro': False,
             'trap':False,
             'tame': False,
             'ride': False,
-            'timer': random.randint(500, 1000)
+            'drown': False,
+            'timer': random.randint(2000, 5000)
         })
 
     t3x, t3y = _random_enemy_pos(100)
@@ -571,7 +612,10 @@ def initialize_enemies():
         'dx': t3dx,
         'dy':t3dy,
         'agro': False,
-        'timer': random.randint(500, 1000)
+        'life':20,
+        'speed': .2,
+        'drown': False,
+        'timer': random.randint(2000, 5000)
     }
 
 def _random_enemy_pos(margin=100):
@@ -579,36 +623,50 @@ def _random_enemy_pos(margin=100):
         x = random.randint(-grid_len + margin, grid_len - margin)
         y = random.randint(-grid_len + margin, grid_len - margin)
         if math.hypot(x - player_x, y - player_y) > 1000:
-            return (x, y)
+            if all(math.hypot(x - ox, y - oy) > (enemy_rad + orad ) for (ox, oy, orad) in obstacle):
+                return (x, y)
 
 
 def draw_enemies():
-    global frame_count,t3dino,enemy_position
+    global frame_count,t3dino,enemy_position, consc_count
     for enemy in enemy_positions:
+        if enemy['ride']:
+            enemy['x']=player_x
+            enemy['y']=player_y
+
         ex = enemy['x']
         ey = enemy['y']
-        if enemy['count']<=0:
+        if enemy['count']<=0 and enemy['consc']==0:
             enemy['consc']=1
+            consc_count-=1
 
 
         glPushMatrix()
         glTranslatef(ex, ey, 0)
+        if enemy['ride']:
+            glRotatef(player_angle, 0, 0, 1)
+            glRotatef(gun_angle, 0, 0, 1)
 
     # glScalef(scale, scale, scale)
 
         glPushMatrix()
         glColor3f(1, 0, 0)
-        glTranslate(0, 0, 50)
-        gluSphere(gluNewQuadric(), enemy_rad * 0.5, 20, 20)
+        if enemy['tame']:
+            glColor3f(0, 1, 0)
+        glTranslate(0, 0, 20)
+        gluSphere(gluNewQuadric(), enemy_rad * 0.7, 20, 20)
         glPopMatrix()
 
         glPushMatrix()
         glColor3f(0, 0, 0)
         if enemy['consc']<=0:
-            glTranslate(0, -30, 0)
+            glTranslate(0, -50, 20)
+        elif enemy['ride']:
+            glTranslate(-40, 0, 35)
+
         else:
-            glTranslate(0, 0, 80)
-        gluSphere(gluNewQuadric(), enemy_rad * 0.2, 20, 20)
+            glTranslate(0, 0, 70)
+        gluSphere(gluNewQuadric(), enemy_rad * 0.4, 20, 20)
         glPopMatrix()
 
         glPopMatrix()
@@ -619,59 +677,91 @@ def draw_enemies():
     for enemy in enemy_positions2:
         ex = enemy['x']
         ey = enemy['y']
+        if enemy['ride']:
+            enemy['x']=player_x
+            enemy['y']=player_y
+        if enemy['count']<=0 and enemy['consc']==0:
+            enemy['consc']=2
+            consc_count-=1
 
         #scale = 1 + 0.12 * math.sin(frame_count * 0.02)
         glPushMatrix()
         glTranslatef(ex, ey, 0)
+        if enemy['drown']:
+            glTranslatef(0,0,-100)
+        if enemy['ride'] and (player_x>grid_len+40 or player_x<-grid_len-40 or player_y>grid_len+50 or player_y<-grid_len-40) or (player_x>-1200 and player_x<20 and player_y>-830 and player_y<-630) or (player_x>20 and player_x<280 and player_y>-1070 and player_y<-630):
+            glTranslatef(0,0,-100)
+        if enemy['ride']:
+            glRotatef(player_angle, 0, 0, 1)
+            glRotatef(gun_angle, 0, 0, 1)
        # glScalef(scale, scale, scale)
 
         glPushMatrix()
         glColor3f(0, 1, 0)
-        if enemy['agro']:
+        if enemy['agro'] and not enemy['tame']:
             glColor3f(1, 0, 0)
         glTranslate(0, 0, 50)
-        gluSphere(gluNewQuadric(), enemy_rad * 0.7, 20, 20)
+        gluSphere(gluNewQuadric(), enemy_rad * 1.3, 20, 20)
         glPopMatrix()
 
         glPushMatrix()
-        glColor3f(0, 1, 0)
-        if enemy['agro']:
+        glColor3f(0, 0, 0)
+        if enemy['consc']<=0:
+            glTranslate(0, -80, 20)
+
+        elif enemy['ride']:
+            glTranslate(-80, 0, 50)
+        else:
+            glTranslate(0, 0, 140)
+        gluSphere(gluNewQuadric(), enemy_rad * 0.6, 20, 20)
+        glPopMatrix()
+
+        glPopMatrix()
+        if enemy['count']>0:
+            enemy['count']= max(0,enemy['count']-1)
+
+
+
+    ex = t3dino['x']
+    ey = t3dino['y']
+
+    #scale = 1 + 0.12 * math.sin(frame_count * 0.02)
+    glPushMatrix()
+    glTranslatef(ex, ey, 0)
+    if t3dino['drown']:
+        glTranslatef(0,0,-100)
+    # glScalef(scale, scale, scale)
+
+    glPushMatrix()
+    glColor3f(.8, 1, .7)
+    if t3dino['agro']:
             glColor3f(0, 0, 0)
-        glTranslate(0, 0, 110)
-        gluSphere(gluNewQuadric(), enemy_rad * 0.3, 20, 20)
-        glPopMatrix()
+    glTranslate(0, 0, 50)
+    gluSphere(gluNewQuadric(), enemy_rad * 2, 20, 20)
+    glPopMatrix()
 
-        glPopMatrix()
+    glPushMatrix()
+    glColor3f(.4, .8, .3)
+    if t3dino['agro']:
+            glColor3f(1, 0, 0)
+    glTranslate(0, 0, 200)
+    gluSphere(gluNewQuadric(), enemy_rad * .7, 20, 20)
+    glPopMatrix()
 
-
-        ex = t3dino['x']
-        ey = t3dino['y']
-
-        #scale = 1 + 0.12 * math.sin(frame_count * 0.02)
-        glPushMatrix()
-        glTranslatef(ex, ey, 0)
-       # glScalef(scale, scale, scale)
-
-        glPushMatrix()
-        glColor3f(.8, 1, .7)
-        glTranslate(0, 0, 50)
-        gluSphere(gluNewQuadric(), enemy_rad * 2, 20, 20)
-        glPopMatrix()
-
-        glPushMatrix()
-        glColor3f(.4, .8, .3)
-        glTranslate(0, 0, 200)
-        gluSphere(gluNewQuadric(), enemy_rad * .7, 20, 20)
-        glPopMatrix()
-
-        glPopMatrix()
+    glPopMatrix()
 
 
 def draw_bullets():
     for b in bullets:
         glPushMatrix()
         glColor3f(1, 0, 0)
-        glTranslatef(b['x'], b['y'], 140)
+        if knock:
+            glColor3f(.5, 0, .5)
+        glTranslatef(b['x'], b['y'], 100)
+        if riding1:
+            glTranslatef(0, 0, 20)
+        elif riding2:
+            glTranslatef(0, 0, 40)
         glutSolidCube(bullsize)
         glPopMatrix()
 
@@ -699,116 +789,219 @@ def spawn_bullet():
 
 
 def update_enemies(delta_frames=1):
-    global enemy_positions, t3dino,trap1
+    global enemy_positions, t3dino,trap1, enemy_positions2, enemy_speed, consc_count
     new_positions = []
 
     for enemy in enemy_positions:
         ex = enemy['x']
         ey = enemy['y']
-        if enemy['consc']>0:
+        if enemy['consc']>0 and not enemy['ride']:
 
             vx = player_x - ex
             vy = player_y - ey
             dist = math.hypot(vx, vy)
-            if dist > 1e-6:
-                nx = vx / dist
-                ny = vy / dist
+            if not enemy['tame']:
+                if dist > 1e-6:
+                    nx = vx / dist
+                    ny = vy / dist
+                else:
+                    nx, ny = 0, 0
             else:
-                nx, ny = 0, 0
-            ex += nx * enemy_speed * delta_frames
-            ey += ny * enemy_speed * delta_frames
+                if dist > 150:
+                    nx = vx / dist
+                    ny = vy / dist
+                else:
+                    nx, ny = 0, 0
+            ex += nx * enemy['speed'] * delta_frames
+            ey += ny * enemy['speed'] * delta_frames
             if ex>trap1['trapx']-100 and ex<trap1['trapx']+100 and ey>trap1['trapy']+100 and ey<trap1['trapy']+300 and trap1['trapset']:
                 trap1['trapact']=True
                 enemy['trap']= True
             if trap1['trapact'] and enemy['trap']:
                 ex = max(trap1['trapx']-100 , min(trap1['trapx']+100, ex))
                 ey = max(trap1['trapy']+100 , min(trap1['trapy']+300, ey))
+
+
             enemy['x']=ex
             enemy['y']=ey
+            if (ex>grid_len+40 or ex<-grid_len-40 or ey>grid_len+50 or ey<-grid_len-40) or (ex>-1200 and ex<20 and ey>-830 and ey<-630) or (ex>20 and ex<280 and ey>-1070 and ey<-630) :
+                x,y=_random_enemy_pos(120)
+                enemy['x'] = x
+                enemy['y'] = y
+                enemy['trap'] =False
+                enemy['life'] = 2
+                enemy['consc'] = 1
+                enemy['meat'] = 2
+                enemy['count'] = 0
+                enemy['agro'] = False
+                enemy['trap'] = False
+                enemy['tame'] = False
+                enemy['ride'] = False
+
+
 
     global enemy_positions2
 
 
     for enemy in enemy_positions2:
+        ex= enemy['x']
+        ey= enemy['y']
+        if enemy['drown']:
+            enemy['speed']= 0.1
+        if enemy['consc']>0 and not enemy['ride']:
 
-        vx = player_x - enemy['x']
-        vy = player_y - enemy['y']
-        dist = math.hypot(vx, vy)
-        if dist < 700:
-            enemy['agro']= True
-        # Move enemy
-        if enemy['agro']:
+            vx = player_x - enemy['x']
+            vy = player_y - enemy['y']
+            dist = math.hypot(vx, vy)
+            if dist < 500:
+                enemy['agro']= True
+            # Move enemy
+            if enemy['agro'] and not enemy['tame']:
+                if dist > 1e-6:
+                    nx = vx / dist
+                    ny = vy / dist
+                else:
+                    nx, ny = 0, 0
+
+                ex += nx * enemy['speed'] * delta_frames
+                ey += ny * enemy['speed'] * delta_frames
+                if ex>trap1['trapx']-100 and ex<trap1['trapx']+100 and ey>trap1['trapy']+100 and ey<trap1['trapy']+300 and trap1['trapset']:
+                    trap1['trapact']=True
+                    enemy['trap']= True
+                if trap1['trapact'] and enemy['trap']:
+                    ex = max(trap1['trapx']-100 , min(trap1['trapx']+100, ex))
+                    ey = max(trap1['trapy']+100 , min(trap1['trapy']+300, ey))
+
+                enemy['x']=ex
+                enemy['y']=ey
+                if (ex>grid_len+40 or ex<-grid_len-40 or ey>grid_len+50 or ey<-grid_len-40) or (ex>-1200 and ex<20 and ey>-830 and ey<-630) or (ex>20 and ex<280 and ey>-1070 and ey<-630) :
+                    enemy['drown']= True
+                else:
+                    enemy['drown']= False
+                    enemy['speed']= 0.3
+
+            elif enemy['tame']:
+                if dist > 200:
+                    nx = vx / dist
+                    ny = vy / dist
+                else:
+                    nx, ny = 0, 0
+                ex += nx * enemy['speed'] * delta_frames
+                ey += ny * enemy['speed'] * delta_frames
+
+                enemy['x']=ex
+                enemy['y']=ey
+                if (ex>grid_len+40 or ex<-grid_len-40 or ey>grid_len+50 or ey<-grid_len-40) or (ex>-1200 and ex<20 and ey>-830 and ey<-630) or (ex>20 and ex<280 and ey>-1070 and ey<-630) :
+                    enemy['drown']= True
+                else:
+                    enemy['drown']= False
+                    enemy['speed']= 0.3
+
+
+            else:
+                enemy['x'] += enemy['dx'] * enemy['speed'] * delta_frames
+                enemy['y'] += enemy['dy'] * enemy['speed'] * delta_frames
+                if (ex>grid_len+40 or ex<-grid_len-40 or ey>grid_len+50 or ey<-grid_len-40) or (ex>-1200 and ex<20 and ey>-830 and ey<-630) or (ex>20 and ex<280 and ey>-1070 and ey<-630) :
+                    enemy['drown']= True
+
+                else:
+                    enemy['drown']= False
+                    enemy['speed']= 0.3
+
+                # Countdown direction timer
+                enemy['timer'] -= 1
+
+                # Change direction when timer expires
+                if enemy['timer'] <= 0:
+                    angle = random.uniform(0, 2 * math.pi)
+                    enemy['dx'] = math.cos(angle)
+                    enemy['dy'] = math.sin(angle)
+                    enemy['timer'] = random.randint(2000, 5000)
+
+                # Keep enemy inside grid
+                enemy['x'] = max(-grid_len , min(grid_len , enemy['x']))
+                enemy['y'] = max(-grid_len , min(grid_len , enemy['y']))
+
+                if enemy['x']>grid_len - 50 or enemy['x']<-grid_len + 50:
+                    #enemy['timer'] =0
+                    enemy['timer'] = random.randint(2000, 5000)
+                    enemy['dx'] = -1*(enemy['x']/abs(enemy['x']))
+                    enemy['dy'] = 0
+
+                if enemy['y']>grid_len - 50 or enemy['y']<-grid_len + 50:
+                    enemy['timer'] = random.randint(2000, 5000)
+                    enemy['dx'] = 0
+                    enemy['dy'] = -1*(enemy['y']/abs(enemy['y']))
+
+    #type3 dino
+    ex= t3dino['x']
+    ey= t3dino['y']
+
+    vx = player_x - t3dino['x']
+    vy = player_y - t3dino['y']
+    dist = math.hypot(vx, vy)
+
+    if t3dino['agro']:
+            t3dino['speed']= 0.5
+            if t3dino['drown']:
+                t3dino['speed']= 0.2
             if dist > 1e-6:
                 nx = vx / dist
                 ny = vy / dist
             else:
                 nx, ny = 0, 0
-            enemy['x'] += nx * enemy_speed * delta_frames
-            enemy['y'] += ny * enemy_speed * delta_frames
+            ex += nx * t3dino['speed'] * delta_frames
+            ey += ny * t3dino['speed'] * delta_frames
 
+            t3dino['x']=ex
+            t3dino['y']=ey
+            if (ex>grid_len+40 or ex<-grid_len-40 or ey>grid_len+50 or ey<-grid_len-40) or (ex>-1200 and ex<20 and ey>-830 and ey<-630) or (ex>20 and ex<280 and ey>-1070 and ey<-630) :
+                    t3dino['drown']= True
+                    t3dino['speed']= 0.2
 
+            else:
+                    t3dino['drown']= False
+                    t3dino['speed']= 0.5
+
+    else:
+        t3dino['x'] += t3dino['dx'] * t3dino['speed'] * delta_frames
+        t3dino['y'] += t3dino['dy'] * t3dino['speed'] * delta_frames
+
+        if (ex>grid_len+40 or ex<-grid_len-40 or ey>grid_len+50 or ey<-grid_len-40) or (ex>-1200 and ex<20 and ey>-830 and ey<-630) or (ex>20 and ex<280 and ey>-1070 and ey<-630) :
+                    t3dino['drown']= True
+                    t3dino['speed']= 0.1
         else:
-            enemy['x'] += enemy['dx'] * enemy_speed * delta_frames
-            enemy['y'] += enemy['dy'] * enemy_speed * delta_frames
+                    t3dino['drown']= False
+                    t3dino['speed']= 0.2
 
-            # Countdown direction timer
-            enemy['timer'] -= 1
+        # Countdown direction timer
+        t3dino['timer'] -= 1
 
-            # Change direction when timer expires
-            if enemy['timer'] <= 0:
-                angle = random.uniform(0, 2 * math.pi)
-                enemy['dx'] = math.cos(angle)
-                enemy['dy'] = math.sin(angle)
-                enemy['timer'] = random.randint(2000, 5000)
+        # Change direction when timer expires
+        if t3dino['timer'] <= 0:
+            angle = random.uniform(0, 2 * math.pi)
+            t3dino['dx'] = math.cos(angle)
+            t3dino['dy'] = math.sin(angle)
+            t3dino['timer'] = random.randint(2000, 5000)
 
-            # Keep enemy inside grid
-            enemy['x'] = max(-grid_len , min(grid_len , enemy['x']))
-            enemy['y'] = max(-grid_len , min(grid_len , enemy['y']))
+        # Keep t3dino inside grid
+        t3dino['x'] = max(-grid_len , min(grid_len , t3dino['x']))
+        t3dino['y'] = max(-grid_len , min(grid_len , t3dino['y']))
 
-            if enemy['x']>grid_len - 50 or enemy['x']<-grid_len + 50:
-                #enemy['timer'] =0
-                enemy['timer'] = random.randint(2000, 5000)
-                enemy['dx'] = -1*(enemy['x']/abs(enemy['x']))
-                enemy['dy'] = 0
+        if t3dino['x']>grid_len - 50 or t3dino['x']<-grid_len + 50:
+            #t3dino['timer'] =0
+            t3dino['timer'] = random.randint(2000, 5000)
+            t3dino['dx'] = -1*(t3dino['x']/abs(t3dino['x']))
+            t3dino['dy'] = 0
 
-            if enemy['y']>grid_len - 50 or enemy['y']<-grid_len + 50:
-                enemy['timer'] = random.randint(2000, 5000)
-                enemy['dx'] = 0
-                enemy['dy'] = -1*(enemy['y']/abs(enemy['y']))
-
-
-
-    t3dino['x'] += t3dino['dx'] * enemy_speed * delta_frames
-    t3dino['y'] += t3dino['dy'] * enemy_speed * delta_frames
-
-    # Countdown direction timer
-    t3dino['timer'] -= 1
-
-    # Change direction when timer expires
-    if t3dino['timer'] <= 0:
-        angle = random.uniform(0, 2 * math.pi)
-        t3dino['dx'] = math.cos(angle)
-        t3dino['dy'] = math.sin(angle)
-        t3dino['timer'] = random.randint(2000, 5000)
-
-    # Keep t3dino inside grid
-    t3dino['x'] = max(-grid_len , min(grid_len , t3dino['x']))
-    t3dino['y'] = max(-grid_len , min(grid_len , t3dino['y']))
-
-    if t3dino['x']>grid_len - 50 or t3dino['x']<-grid_len + 50:
-        #t3dino['timer'] =0
-        t3dino['timer'] = random.randint(2000, 5000)
-        t3dino['dx'] = -1*(t3dino['x']/abs(t3dino['x']))
-        t3dino['dy'] = 0
-
-    if t3dino['y']>grid_len - 50 or t3dino['y']<-grid_len + 50:
-        t3dino['timer'] = random.randint(2000, 5000)
-        t3dino['dx'] = 0
-        t3dino['dy'] = -1*(t3dino['y']/abs(t3dino['y']))
+        if t3dino['y']>grid_len - 50 or t3dino['y']<-grid_len + 50:
+            t3dino['timer'] = random.randint(2000, 5000)
+            t3dino['dx'] = 0
+            t3dino['dy'] = -1*(t3dino['y']/abs(t3dino['y']))
 
 
 def update_bullandcoll():
-    global bullets, enemy_positions, score, miss, life, gameover
+    global bullets, enemy_positions, score, miss, life, gameover, consc_count, t3dino
     new_bullets = []
 
     hit_enemy_indices = set()
@@ -821,28 +1014,92 @@ def update_bullandcoll():
 
         # collision with enemies
         hit = False
-        ei=-1
         for enemy in enemy_positions:
-            ei+=1
             ex = enemy['x']
             ey = enemy['y']
             dist_sq = (b['x'] - ex) ** 2 + (b['y'] - ey) ** 2
-            effective_enemy_radius = enemy_rad * 0.9
+            effective_enemy_radius = enemy_rad * 0.7
             if dist_sq <= (effective_enemy_radius + bullsize) ** 2:
+                hit = True
+                enemy['agro']= True
 
                 if kill:
-                    enemy['life']-=1
+                    enemy['life']= max(0,enemy['life']-1)
                     if enemy['life']<=0:
-                        hit = True
+                        x,y=_random_enemy_pos(120)
+                        enemy['x'] = x
+                        enemy['y'] = y
                         enemy['trap'] =False
-                        hit_enemy_indices.add(ei)
+                        enemy['life'] = 2
+                        enemy['consc'] = 1
+                        enemy['meat'] = 2
+                        enemy['count'] = 0
+                        enemy['agro'] = False
+                        enemy['trap'] = False
+                        enemy['tame'] = False
+                        enemy['ride'] = False
+
                         score += 1
                         break
                 elif knock:
                     enemy['consc']= max(0,enemy['consc']-1)
                     if enemy['consc']<=0 and enemy['count']==0:
+                        consc_count+=1
                         enemy['count']=10000
-        ei=-1
+
+
+        for enemy in enemy_positions2:
+            ex = enemy['x']
+            ey = enemy['y']
+            dist_sq = (b['x'] - ex) ** 2 + (b['y'] - ey) ** 2
+            effective_enemy_radius = enemy_rad * 0.8
+            if dist_sq <= (effective_enemy_radius + bullsize) ** 2:
+                hit = True
+                enemy['agro']= True
+
+                if kill:
+                    enemy['life']= max(0,enemy['life']-1)
+                    if enemy['life']<=0:
+                        angle = random.uniform(0, 2 * math.pi)
+                        dx = math.cos(angle)
+                        dy = math.sin(angle)
+                        x,y=_random_enemy_pos(120)
+                        enemy['x'] = x
+                        enemy['y'] = y
+                        enemy['dx'] = dx
+                        enemy['dy'] = dy
+                        enemy['trap'] =False
+                        enemy['life'] = 3
+                        enemy['consc'] = 2
+                        enemy['meat'] = 3
+                        enemy['count'] = 0
+                        enemy['agro'] = False
+                        enemy['trap'] = False
+                        enemy['tame'] = False
+                        enemy['ride'] = False
+
+                        score += 1
+                        break
+                elif knock:
+                    enemy['consc']= max(enemy['consc']-1, 0)
+                    if enemy['consc']<=0 and enemy['count']==0:
+                        consc_count+=1
+                        enemy['count']=10000
+
+        ex = t3dino['x']
+        ey = t3dino['y']
+
+        dist_sq = (b['x'] - ex) ** 2 + (b['y'] - ey) ** 2
+        effective_enemy_radius = enemy_rad * 0.7
+        if dist_sq <= (effective_enemy_radius + bullsize) ** 2:
+            hit = True
+            t3dino['agro']= True
+
+            if kill:
+                t3dino['life']= max(0,t3dino['life']-1)
+                if t3dino['life']<=0:
+                    pass
+
 
         out_of_bounds = abs(b['x']) > grid_len + \
             300 or abs(b['y']) > grid_len + 300
@@ -859,28 +1116,66 @@ def update_bullandcoll():
 
     bullets = new_bullets
 
-    if hit_enemy_indices:
-        for ei in sorted(hit_enemy_indices):
-            x,y=_random_enemy_pos(120)
-            enemy['trap'] =False
-            enemy_positions[ei]['x'] = x
-            enemy_positions[ei]['y'] = y
-
     for enemy in enemy_positions:
-        if enemy['consc']>0:
+        if enemy['consc']>0 and not enemy['tame']:
             ex = enemy['x']
             ey = enemy['y']
             dist = math.hypot(ex - player_x, ey - player_y)
             if dist <= (enemy_rad * 0.8 + player_rad):
                 life -= enemy['life']
-                x,y=_random_enemy_pos(100)
-                enemy['trap'] =False
+                x,y=_random_enemy_pos(120)
                 enemy['x'] = x
                 enemy['y'] = y
-
+                enemy['trap'] =False
+                enemy['life'] = 2
+                enemy['consc'] = 1
+                enemy['meat'] = 2
+                enemy['count'] = 0
+                enemy['agro'] = False
+                enemy['trap'] = False
+                enemy['tame'] = False
+                enemy['ride'] = False
                 print(f"Player hit! life={life}")
                 if life <= 0:
                     gameover = True
+    for enemy in enemy_positions2:
+        if enemy['consc']>0 and enemy['agro'] and not enemy['tame']:
+            ex = enemy['x']
+            ey = enemy['y']
+            dist = math.hypot(ex - player_x, ey - player_y)
+            if dist <= (enemy_rad * 0.8 + player_rad):
+                life -= enemy['life']
+                x,y=_random_enemy_pos(120)
+                angle = random.uniform(0, 2 * math.pi)
+                dx = math.cos(angle)
+                dy = math.sin(angle)
+                enemy['dx'] = dx
+                enemy['dy'] = dy
+                enemy['x'] = x
+                enemy['y'] = y
+                enemy['trap'] =False
+                enemy['life'] = 3
+                enemy['consc'] = 2
+                enemy['meat'] = 3
+                enemy['count'] = 0
+                enemy['agro'] = False
+                enemy['trap'] = False
+                enemy['tame'] = False
+                enemy['ride'] = False
+                print(f"Player hit! life={life}")
+                if life <= 0:
+                    gameover = True
+
+    if t3dino['agro']:
+            ex = t3dino['x']
+            ey = t3dino['y']
+            dist = math.hypot(ex - player_x, ey - player_y)
+            if dist <= (enemy_rad * 1 + player_rad):
+                life -= t3dino['life']
+                if life <= 0:
+                    gameover = True
+
+
 
     while len(enemy_positions) < 2:
         x,y=_random_enemy_pos(100)
@@ -898,7 +1193,12 @@ def update_bullandcoll():
 
 
 def autofirerotate():
-    global gun_angle, cheat_firetimer, bullets
+    global gun_angle, cheat_firetimer, bullets, enemy_positions2, cheat, consc_count, player_x, player_y, player_angle
+    global cheat_rotspeed, cheat_maxdist, bullspeed
+    if consc_count>=unconsc_count:
+        cheat=not cheat
+        gun_angle=0
+        cheat_firetimer=0
 
     # Rotate the gun continuously
     gun_angle += cheat_rotspeed
@@ -911,37 +1211,71 @@ def autofirerotate():
     current_absolute_angle = (player_angle + gun_angle) % 360
 
     for enemy in enemy_positions:
-        ex=enemy['x']
-        ey=enemy['y']
-        dist = math.hypot(ex - player_x, ey - player_y)
-        if dist > cheat_maxdist or dist == 0:
-            continue
+        if enemy['consc']!=0 and not enemy['tame']:
+            ex=enemy['x']
+            ey=enemy['y']
+            dist = math.hypot(ex - player_x, ey - player_y)
+            if dist > cheat_maxdist or dist == 0:
+                continue
 
-        dx = ex - player_x
-        dy = ey - player_y
+            dx = ex - player_x
+            dy = ey - player_y
 
-        target_rad = math.atan2(-dy, -dx)
-        target_deg = math.degrees(target_rad) % 360
+            target_rad = math.atan2(-dy, -dx)
+            target_deg = math.degrees(target_rad) % 360
 
-        angle_diff = abs(target_deg - current_absolute_angle)
+            angle_diff = abs(target_deg - current_absolute_angle)
 
-        if angle_diff > 180:
-            angle_diff = 360 - angle_diff
+            if angle_diff > 180:
+                angle_diff = 360 - angle_diff
 
-        if angle_diff < (cheat_rotspeed * 0.8):
-            norm = math.hypot(dx, dy)
-            exact_dx = dx / norm
-            exact_dy = dy / norm
+            if angle_diff < (cheat_rotspeed * 0.8):
+                norm = math.hypot(dx, dy)
+                exact_dx = dx / norm
+                exact_dy = dy / norm
 
-            muzzle_offset = 90
-            bx = player_x + exact_dx * muzzle_offset
-            by = player_y + exact_dy * muzzle_offset
+                muzzle_offset = 90
+                bx = player_x + exact_dx * muzzle_offset
+                by = player_y + exact_dy * muzzle_offset
 
-            bullets.append({'x': bx,'y': by,'dx': exact_dx,'dy': exact_dy,'speed': bullspeed,'life': 0})
-            cheat_firetimer = 10
-            break
+                bullets.append({'x': bx,'y': by,'dx': exact_dx,'dy': exact_dy,'speed': bullspeed,'life': 0})
+                cheat_firetimer = 10
+                break
+
+    for enemy in enemy_positions2:
+        if enemy['consc']!=0 and not enemy['tame']:
+            ex=enemy['x']
+            ey=enemy['y']
+            dist = math.hypot(ex - player_x, ey - player_y)
+            if dist > cheat_maxdist or dist == 0:
+                continue
+
+            dx = ex - player_x
+            dy = ey - player_y
+
+            target_rad = math.atan2(-dy, -dx)
+            target_deg = math.degrees(target_rad) % 360
+
+            angle_diff = abs(target_deg - current_absolute_angle)
+
+            if angle_diff > 180:
+                angle_diff = 360 - angle_diff
+
+            if angle_diff < (cheat_rotspeed * 0.8):
+                norm = math.hypot(dx, dy)
+                exact_dx = dx / norm
+                exact_dy = dy / norm
+
+                muzzle_offset = 90
+                bx = player_x + exact_dx * muzzle_offset
+                by = player_y + exact_dy * muzzle_offset
+
+                bullets.append({'x': bx,'y': by,'dx': exact_dx,'dy': exact_dy,'speed': bullspeed,'life': 0})
+                cheat_firetimer = 10
+                break
 
 def axe_hit():
+    global axe_x, axe_y, enemy_positions, enemy_positions2, totalmeat, consc_count
     for enemy in enemy_positions:
         if enemy['consc']==0:
             ex = enemy['x']
@@ -950,26 +1284,59 @@ def axe_hit():
             effective_enemy_radius = enemy_rad * 0.9
             if dist_sq <= (effective_enemy_radius + 140) ** 2:
                 enemy['meat']=max(0,enemy['meat']-1)
+                totalmeat+=1
                 if enemy['meat']<=0:
                     x,y=_random_enemy_pos(100)
-                    enemy['x']= x
-                    enemy['y']= y
-                    enemy['life']=2
-                    enemy['consc']=1
-                    enemy['meat']=2
-                    enemy['agro']= False
-                    enemy['trap']=False
-                    enemy['tame']=False
-                    enemy['ride']= False
+                    enemy['x'] = x
+                    enemy['y'] = y
+                    enemy['trap'] =False
+                    enemy['life'] = 2
+                    enemy['consc'] = 1
+                    enemy['meat'] = 2
+                    enemy['count'] = 0
+                    enemy['agro'] = False
+                    enemy['trap'] = False
+                    enemy['tame'] = False
+                    enemy['ride'] = False
+                    consc_count-=1
+
+    for enemy in enemy_positions2:
+        if enemy['consc']==0:
+            ex = enemy['x']
+            ey = enemy['y']
+            dist_sq = (axe_x - ex) ** 2 + (axe_y - ey) ** 2
+            effective_enemy_radius = enemy_rad * 0.9
+            if dist_sq <= (effective_enemy_radius + 140) ** 2:
+                enemy['meat']=max(0,enemy['meat']-1)
+                totalmeat+=1
+                if enemy['meat']<=0:
+                    x,y=_random_enemy_pos(120)
+                    angle = random.uniform(0, 2 * math.pi)
+                    dx = math.cos(angle)
+                    dy = math.sin(angle)
+                    enemy['dx'] = dx
+                    enemy['dy'] = dy
+                    enemy['x'] = x
+                    enemy['y'] = y
+                    enemy['trap'] =False
+                    enemy['life'] = 3
+                    enemy['consc'] = 2
+                    enemy['meat'] = 3
+                    enemy['count'] = 0
+                    enemy['agro'] = False
+                    enemy['trap'] = False
+                    enemy['tame'] = False
+                    enemy['ride'] = False
+                    consc_count-=1
 
 
 def keyboardListener(key, x, y):
-    global player_x, player_y, player_angle, gun_angle, water,trap1,kill,knock,axe
-    global life, score, miss, gameover, cheat, autocamgun, cheat_firetimer
+    global player_x, player_y, player_angle, gun_angle, water,trap1,kill,knock,axe, riding, riding1, riding2
+    global life, score, miss, gameover, cheat, autocamgun, cheat_firetimer, consc_count, totalmeat, unconsc_count
 
     if key == b'r':
         # Reset game state
-        life = 5
+        life = 20
         score = 0
         miss = 0
         player_x = 0
@@ -980,11 +1347,13 @@ def keyboardListener(key, x, y):
         initialize_enemies()
         gameover = False
         cheat = False
+        consc_count=0
         autocamgun = False
         cheat_firetimer = 0
         knock=False
         axe= True
         kill=False
+        trap1={'trapset':False,'trapact':False,'trapx':0,'trapy':0}
         print("Game reset!")
         glutPostRedisplay()
         return
@@ -996,6 +1365,8 @@ def keyboardListener(key, x, y):
             knock=True
             axe= False
             kill=False
+        else:
+            gun_angle=0
         cheat_firetimer = 0
         print(f"Cheat mode {'ON' if cheat else 'OFF'}")
         glutPostRedisplay()
@@ -1019,6 +1390,7 @@ def keyboardListener(key, x, y):
             trap1['trapset']= True
             trap1['trapx']=player_x
             trap1['trapy']=player_y
+        print("Trap set!")
 
 
     if key == b'k':
@@ -1032,7 +1404,110 @@ def keyboardListener(key, x, y):
             kill= True
             axe= False
 
+    if key == b'f':
+        for enemy in enemy_positions:
+            if enemy['consc']<=0:
+                ex = enemy['x']
+                ey = enemy['y']
+                dist = math.hypot(ex - player_x, ey - player_y)
+                if dist <= (enemy_rad * 0.8 + player_rad)+50:
+                    if totalmeat>=2:
+                        enemy['tame']= True
+                        enemy['trap'] =False
+                        enemy['life'] = 2
+                        enemy['consc'] = 1
+                        enemy['meat'] = 2
+                        enemy['count'] = 0
+                        enemy['agro'] = False
+                        enemy['trap'] = False
+                        enemy['ride'] = False
+                        totalmeat-=2
+                        consc_count-=1
+                        unconsc_count-=1
+                        print("Dino Tamed!")
 
+                    else:
+                        print("Not enough meat to tame dino.")
+
+                else:
+                    print("Too far to tame dino.")
+
+
+        for enemy in enemy_positions2:
+            if enemy['consc']<=0:
+                ex = enemy['x']
+                ey = enemy['y']
+                dist = math.hypot(ex - player_x, ey - player_y)
+                if dist <= (enemy_rad * 0.8 + player_rad)+50:
+                    if totalmeat>=3:
+                        enemy['tame']= True
+                        enemy['trap'] =False
+                        enemy['life'] = 3
+                        enemy['consc'] = 2
+                        enemy['meat'] = 3
+                        enemy['count'] = 0
+                        enemy['agro'] = False
+                        enemy['ride'] = False
+                        totalmeat-=3
+                        consc_count-=1
+                        unconsc_count-=1
+                        print("Dino Tamed!")
+
+                    else:
+                        print("Not enough meat to tame dino.")
+
+                else:
+                    print("Too far to tame dino.")
+
+
+    if key == b'm':
+        if not riding:
+            if not riding:
+                for enemy in enemy_positions:
+                    if enemy['tame']:
+                        ex = enemy['x']
+                        ey = enemy['y']
+                        dist = math.hypot(ex - player_x, ey - player_y)
+                        if dist <= (enemy_rad * 0.8 + player_rad)+50:
+                            player_angle=-90
+                            player_x= enemy['x']
+                            player_y= enemy['y']
+                            riding=True
+                            riding1=True
+                            enemy['ride']= True
+                            print("Riding Dino!")
+                            break
+                        else:
+                            print("Too far to ride dino.")
+
+            if not riding:
+                for enemy in enemy_positions2:
+                    if enemy['tame']:
+                        ex = enemy['x']
+                        ey = enemy['y']
+                        dist = math.hypot(ex - player_x, ey - player_y)
+                        if dist <= (enemy_rad * 0.8 + player_rad)+50:
+                            riding=True
+                            riding2=True
+                            player_angle=-90
+                            player_x= enemy['x']
+                            player_y= enemy['y']
+                            enemy['ride']= True
+                            print("Riding Dino!")
+                            break
+                        else:
+                            print("Too far to ride dino.")
+
+        else:
+            riding = not riding
+            riding1 = False
+            riding2 = False
+            if not riding:
+                for enemy in enemy_positions:
+                  enemy['ride']= False
+                for enemy in enemy_positions2:
+                  enemy['ride']= False
+                print("Dismounted from Dino.")
     # Normalize angle
     player_angle %= 360
     angle_rad = math.radians(player_angle)
@@ -1054,16 +1529,16 @@ def keyboardListener(key, x, y):
 
 
     #Waterdeath
-    if player_x>grid_len+40 or player_x<-grid_len-40 or player_y>grid_len+50 or player_y<-grid_len-40:
+    if not riding and player_x>grid_len+40 or player_x<-grid_len-40 or player_y>grid_len+50 or player_y<-grid_len-40:
         water= True
         gameover= not gameover
 
-    if player_x>-800 and player_x<0 and player_y>-830 and player_y<-630:
+    if not riding and player_x>-1200 and player_x<20 and player_y>-830 and player_y<-630:
         water= True
         gameover= not gameover
 
 
-    if player_x>20 and player_x<280 and player_y>-1070 and player_y<-630:
+    if not riding and player_x>20 and player_x<280 and player_y>-1070 and player_y<-630:
         water= True
         gameover= not gameover
     # Keep player inside bounds
@@ -1116,16 +1591,16 @@ def idle():
     global axe_swing_angle, axe_swinging
 
     if axe_swinging:
-        axe_swing_angle += axe_swing_speed
+        axe_swing_angle -= axe_swing_speed
 
-        if axe_swing_angle >= axe_max_swing:
+        if axe_swing_angle <= axe_max_swing:
             axe_swing_angle = axe_max_swing
             axe_swinging = False
 
     else:
-        if axe_swing_angle > 0:
-            axe_swing_angle -= axe_swing_speed
-            if axe_swing_angle < 0:
+        if axe_swing_angle < 0:
+            axe_swing_angle += axe_swing_speed
+            if axe_swing_angle >= 0:
                 axe_swing_angle = 0
 
     frame_count += 1
@@ -1134,12 +1609,16 @@ def idle():
 def setupCamera():
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(fovY, 1, 0.1, 2000)
+    gluPerspective(fovY, 1, 0.1, 3000)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
     if first_person:
-        cam_z = 155
+        cam_z = 130
+        if riding1:
+            cam_z = 150
+        elif riding2:
+            cam_z = 210
         if cheat and autocamgun:
             ang = math.radians(player_angle + gun_angle)
         else:
@@ -1172,7 +1651,7 @@ def setupCamera():
 def showScreen():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
-    glViewport(0, 0, 1600, 1600)
+    glViewport(0, 0, 1600, 1500)
 
     setupCamera()
     draw_texts()
