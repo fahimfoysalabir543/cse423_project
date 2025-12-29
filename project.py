@@ -43,6 +43,127 @@ axe_swing_angle=0
 axe_swing_speed=4
 axe_max_swing=-120
 obstacle=[]
+def _separate_pair(ax, ay, bx, by, ar, br):
+    """Return adjusted positions for two circles so they no longer overlap."""
+    dx = bx - ax
+    dy = by - ay
+    dist = math.hypot(dx, dy)
+    min_dist = ar + br
+    if dist == 0:
+        # Arbitrary small nudge to avoid division by zero
+        dx, dy = 1.0, 0.0
+        dist = 1.0
+    if dist < min_dist:
+        # Push each circle away by half the overlap along the line between centers
+        overlap = (min_dist - dist) + 0.01
+        nx = dx / dist
+        ny = dy / dist
+        ax -= nx * (overlap * 0.5)
+        ay -= ny * (overlap * 0.5)
+        bx += nx * (overlap * 0.5)
+        by += ny * (overlap * 0.5)
+    return ax, ay, bx, by
+
+def separate_enemies():
+    """Ensure enemies do not overlap each other by minimally separating circles.
+    Applies to both enemy groups and the large type-3 dino.
+    """
+    global enemy_positions, enemy_positions2, t3dino, enemy_rad
+    # Group 1 internal separation
+    for i in range(len(enemy_positions)):
+        for j in range(i+1, len(enemy_positions)):
+            a = enemy_positions[i]
+            b = enemy_positions[j]
+            ax, ay, bx, by = _separate_pair(a['x'], a['y'], b['x'], b['y'], enemy_rad, enemy_rad)
+            a['x'], a['y'] = ax, ay
+            b['x'], b['y'] = bx, by
+
+    # Group 2 internal separation
+    for i in range(len(enemy_positions2)):
+        for j in range(i+1, len(enemy_positions2)):
+            a = enemy_positions2[i]
+            b = enemy_positions2[j]
+            ax, ay, bx, by = _separate_pair(a['x'], a['y'], b['x'], b['y'], enemy_rad, enemy_rad)
+            a['x'], a['y'] = ax, ay
+            b['x'], b['y'] = bx, by
+
+    # Cross-group separation
+    for a in enemy_positions:
+        for b in enemy_positions2:
+            ax, ay, bx, by = _separate_pair(a['x'], a['y'], b['x'], b['y'], enemy_rad, enemy_rad)
+            a['x'], a['y'] = ax, ay
+            b['x'], b['y'] = bx, by
+
+    # Type-3 against both groups
+    try:
+        tr = enemy_rad * 2
+        for a in enemy_positions:
+            tx, ty, ax, ay = _separate_pair(t3dino['x'], t3dino['y'], a['x'], a['y'], tr, enemy_rad)
+            t3dino['x'], t3dino['y'] = tx, ty
+            a['x'], a['y'] = ax, ay
+        for b in enemy_positions2:
+            tx, ty, bx, by = _separate_pair(t3dino['x'], t3dino['y'], b['x'], b['y'], tr, enemy_rad)
+            t3dino['x'], t3dino['y'] = tx, ty
+            b['x'], b['y'] = bx, by
+    except Exception:
+        pass
+
+# Obstacles state
+obstacles_built = False
+
+def ensure_obstacles_static():
+    """Populate obstacle list with known static geometry if empty.
+    Prevents movement-through-objects even if draw order hasn't run yet.
+    """
+    global obstacle
+    if obstacle:
+        return
+    # Trees
+    obstacle.extend([
+        (-500, 200, 50),
+        (-900, 700, 30),
+        (900, -900, 50),
+        (-1000, -1000, 30),
+        (1000, 900, 30),
+    ])
+    # Mountains
+    obstacle.extend([
+        (900, 100, 200),
+        (900, 0, 150),
+    ])
+    # Static narco
+    obstacle.append((900, -400, 120))
+
+def will_collide_with_obstacles(nx, ny, obj_radius):
+    """Return True if the circle at (nx, ny) with radius obj_radius intersects any obstacle."""
+    ensure_obstacles_static()
+    for ox, oy, orad in obstacle:
+        dx = nx - ox
+        dy = ny - oy
+        if math.hypot(dx, dy) < (obj_radius + orad):
+            return True
+    return False
+
+def resolve_position_against_obstacles(x, y, obj_radius):
+    """Push the circle (x, y, r) out of intersecting obstacles by minimum distance.
+    Keeps gameplay logic intact while preventing tunneling through static geometry.
+    """
+    ensure_obstacles_static()
+    for ox, oy, orad in obstacle:
+        dx = x - ox
+        dy = y - oy
+        d = math.hypot(dx, dy)
+        min_d = obj_radius + orad
+        if d == 0:
+            # Rare: exactly centered. Nudge out along X.
+            x += min_d + 0.01
+            continue
+        if d < min_d:
+            # Push out along the normal by the overlap
+            push = (min_d - d) + 0.01
+            x += dx / d * push
+            y += dy / d * push
+    return x, y
 
 # Cheat features
 cheat = False
@@ -142,6 +263,9 @@ def draw_texts():
 
 def draw_grids_and_walls():
     # Draw the grid
+    # Reset obstacles each frame so they don't accumulate
+    global obstacle
+    obstacle.clear()
 
 
     glColor3f(0.98, 0.92, 0.67)
@@ -412,6 +536,9 @@ def draw_grids_and_walls():
 
 def draw_player():
     global axe_x, axe_y
+    # Prevent player overlapping with obstacles before rendering
+    global player_x, player_y
+    player_x, player_y = resolve_position_against_obstacles(player_x, player_y, player_rad)
     glPushMatrix()
     glTranslatef(player_x, player_y, 0)
     if riding1:
@@ -629,6 +756,19 @@ def _random_enemy_pos(margin=100):
 
 def draw_enemies():
     global frame_count,t3dino,enemy_position, consc_count
+    # Ensure enemies don't overlap one another before drawing or further updates
+    separate_enemies()
+    # Resolve enemy collisions with static obstacles before drawing
+    for enemy in enemy_positions:
+        enemy['x'], enemy['y'] = resolve_position_against_obstacles(enemy['x'], enemy['y'], enemy_rad)
+
+    for enemy in enemy_positions2:
+        enemy['x'], enemy['y'] = resolve_position_against_obstacles(enemy['x'], enemy['y'], enemy_rad)
+
+    try:
+        t3dino['x'], t3dino['y'] = resolve_position_against_obstacles(t3dino['x'], t3dino['y'], enemy_rad * 2)
+    except Exception:
+        pass
     for enemy in enemy_positions:
         if enemy['ride']:
             enemy['x']=player_x
@@ -1651,7 +1791,7 @@ def setupCamera():
 def showScreen():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
-    glViewport(0, 0, 1600, 1500)
+    glViewport(0, 0, 1600, 1200)
 
     setupCamera()
     draw_texts()
