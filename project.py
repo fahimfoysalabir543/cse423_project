@@ -44,6 +44,63 @@ axe_swing_speed=4
 axe_max_swing=-120
 obstacle=[]
 
+# Obstacles state
+obstacles_built = False
+
+def ensure_obstacles_static():
+    """Populate obstacle list with known static geometry if empty.
+    Prevents movement-through-objects even if draw order hasn't run yet.
+    """
+    global obstacle
+    if obstacle:
+        return
+    # Trees
+    obstacle.extend([
+        (-500, 200, 50),
+        (-900, 700, 30),
+        (900, -900, 50),
+        (-1000, -1000, 30),
+        (1000, 900, 30),
+    ])
+    # Mountains
+    obstacle.extend([
+        (900, 100, 200),
+        (900, 0, 150),
+    ])
+    # Static narco
+    obstacle.append((900, -400, 120))
+
+def will_collide_with_obstacles(nx, ny, obj_radius):
+    """Return True if the circle at (nx, ny) with radius obj_radius intersects any obstacle."""
+    ensure_obstacles_static()
+    for ox, oy, orad in obstacle:
+        dx = nx - ox
+        dy = ny - oy
+        if math.hypot(dx, dy) < (obj_radius + orad):
+            return True
+    return False
+
+def resolve_position_against_obstacles(x, y, obj_radius):
+    """Push the circle (x, y, r) out of intersecting obstacles by minimum distance.
+    Keeps gameplay logic intact while preventing tunneling through static geometry.
+    """
+    ensure_obstacles_static()
+    for ox, oy, orad in obstacle:
+        dx = x - ox
+        dy = y - oy
+        d = math.hypot(dx, dy)
+        min_d = obj_radius + orad
+        if d == 0:
+            # Rare: exactly centered. Nudge out along X.
+            x += min_d + 0.01
+            continue
+        if d < min_d:
+            # Push out along the normal by the overlap
+            push = (min_d - d) + 0.01
+            x += dx / d * push
+            y += dy / d * push
+    return x, y
+
 # Cheat features
 cheat = False
 
@@ -142,6 +199,9 @@ def draw_texts():
 
 def draw_grids_and_walls():
     # Draw the grid
+    # Reset obstacles each frame so they don't accumulate
+    global obstacle
+    obstacle.clear()
 
 
     glColor3f(0.98, 0.92, 0.67)
@@ -412,6 +472,9 @@ def draw_grids_and_walls():
 
 def draw_player():
     global axe_x, axe_y
+    # Prevent player overlapping with obstacles before rendering
+    global player_x, player_y
+    player_x, player_y = resolve_position_against_obstacles(player_x, player_y, player_rad)
     glPushMatrix()
     glTranslatef(player_x, player_y, 0)
     if riding1:
@@ -629,6 +692,17 @@ def _random_enemy_pos(margin=100):
 
 def draw_enemies():
     global frame_count,t3dino,enemy_position, consc_count
+    # Resolve enemy collisions with static obstacles before drawing
+    for enemy in enemy_positions:
+        enemy['x'], enemy['y'] = resolve_position_against_obstacles(enemy['x'], enemy['y'], enemy_rad)
+
+    for enemy in enemy_positions2:
+        enemy['x'], enemy['y'] = resolve_position_against_obstacles(enemy['x'], enemy['y'], enemy_rad)
+
+    try:
+        t3dino['x'], t3dino['y'] = resolve_position_against_obstacles(t3dino['x'], t3dino['y'], enemy_rad * 2)
+    except Exception:
+        pass
     for enemy in enemy_positions:
         if enemy['ride']:
             enemy['x']=player_x
